@@ -90,7 +90,7 @@ class SheetSelectView(discord.ui.View):
             "ProcessQuests",
             "LaborQuests_Lv1",
             "LaborQuests_Lv2",
-            #"LaborQuests_Lv3"
+            "LaborQuests_Lv3"
         ]
         for i, sheet_name in enumerate(sheets):
             button = SheetButton(sheet_name)
