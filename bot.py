@@ -155,7 +155,7 @@ class ApprovalButtons(discord.ui.View):
             self.sheet_name,
             self.quest_title,
             "อนุมัติ",
-         self.submitted_by
+            self.submitted_by
         ])
 
         try:
@@ -184,7 +184,51 @@ class ApprovalButtons(discord.ui.View):
                 except Exception as e:
                     print(f"❗ แปลงหรือดึงผู้เล่นล้มเหลว: {e}")
                     member = None
+
                 if member and role:
+                    # ✅ เงื่อนไขลบ Role เมื่อได้รับ Lv3 เท่านั้น
+                    if self.sheet_name == "LaborQuests_Lv3":
+                        remove_sheets = ["Role_LaborQuests_Lv1", "Role_LaborQuests_Lv2"]
+                        for sheet_title in remove_sheets:
+                            try:
+                                ws = spreadsheets.worksheet(sheet_title)
+                                rows = ws.get_all_values()[1:]
+                                for row in rows:
+                                    try:
+                                        old_role_id = int(row[1])
+                                        old_role = discord.utils.get(guild.roles, id=old_role_id)
+                                        if old_role and old_role in member.roles:
+                                            await member.remove_roles(old_role)
+                                            print(f"🗑 ลบ Role {old_role.name} ออกจาก {member.display_name}")
+                                    except Exception as e:
+                                        print(f"❗ อ่าน Role ID ผิดพลาดจาก {sheet_title}: {e}")
+                            except Exception as e:
+                                print(f"❗ ลบ Role จากชีท {sheet_title} ไม่สำเร็จ: {e}")
+
+                    # ✅ ลบ Role เบื้องต้น No_1 ถึง No_4 ถ้าได้รับ No_5
+                    if self.sheet_name == "BeginnerQuests" and self.quest_title.startswith("No_5"):
+                        try:
+                            ws = spreadsheets.worksheet("Role_Beginner")
+                            rows = ws.get_all_values()[1:]
+                            for row in rows:
+                                quest_label = row[0].split("(")[0].strip()
+                                if quest_label.startswith("No_") and not quest_label.startswith("No_5"):
+                                    try:
+                                        old_role_id = int(row[1])
+                                        old_role = discord.utils.get(guild.roles, id=old_role_id)
+                                        if old_role and old_role in member.roles:
+                                            await member.remove_roles(old_role)
+                                            print(f"🗑 ลบ Role {old_role.name} ออกจาก {member.display_name}")
+                                    except Exception as e:
+                                        print(f"❗ อ่าน Role ID ผิดพลาดใน Role_Beginner: {e}")
+                        except Exception as e:
+                            print(f"❗ ลบ Role จาก Role_Beginner ไม่สำเร็จ: {e}")
+
+                    # ✅ เพิ่ม Role ใหม่
+                    await member.add_roles(role)
+                    print(f"✅ เพิ่ม Role {role.name} ให้ {member.display_name}")
+
+                    # ✅ เพิ่ม Role ใหม่
                     await member.add_roles(role)
                     print(f"✅ เพิ่ม Role {role.name} ให้ {member.display_name}")
                 else:
@@ -196,13 +240,13 @@ class ApprovalButtons(discord.ui.View):
 
         await interaction.message.edit(
             content=f"✅ เควสของ {self.player_name} ({self.quest_title}) ได้รับการอนุมัติแล้วโดย {interaction.user.mention}",
-            view=None  # ลบปุ่มออก
+            view=None
         )
+
         # ✅ ส่ง DM ไปยังผู้เล่น
         try:
             user_id = int(self.submitted_by.strip("<@!>"))  # แปลง mention เป็น user_id
             member = await interaction.guild.fetch_member(user_id)
-
             if member:
                 embed_dm = discord.Embed(
                     title="📬 ผลการพิจารณาเควส",
@@ -213,15 +257,12 @@ class ApprovalButtons(discord.ui.View):
         except Exception as e:
             print(f"❗ ไม่สามารถส่ง DM ให้ผู้เล่นได้: {e}")
 
-
-    # ✅ ส่งข้อความแจ้งไปยังแอดมินหลังอนุมัติ
+        # ✅ แจ้งผลไปยังแอดมิน
         admin_channel = bot.get_channel(ADMIN_CHANNEL_ID)
         if admin_channel:
             await admin_channel.send(
                 f"✅ เควสของ **{self.player_name}**: `{self.quest_title}` ได้รับการอนุมัติโดย {interaction.user.mention}"
-        )
-
-        
+            )
 
     @discord.ui.button(label="❌ Reject", style=discord.ButtonStyle.danger, custom_id="reject_button")
     async def reject(self, interaction: discord.Interaction, button: discord.ui.Button):
